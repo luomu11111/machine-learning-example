@@ -1,0 +1,123 @@
+# 数据处理
+import numpy as np
+import pandas as pd
+# 数据可视化
+import matplotlib.pyplot as plt
+import seaborn as sn
+# 其他
+from sklearn import linear_model  # 线性回归
+from sklearn import preprocessing  # 数据预处理
+from sklearn.metrics import r2_score  # 预测效果分析
+from sklearn.model_selection import train_test_split  # 训练集等划分
+
+# 简易跑数据集
+def study1():
+    # 导入数据
+    sn.set()
+    names = ['CRIM', 'ZN', 'INDUS', 'CHAS', 'NOX', 'RM', 'GE', 'DIS', 'RAD', 'TAX', 'PRTATIO', 'B', 'LSTAT', 'PRICE']
+    boston = pd.read_csv(r"D:\360MoveData\Users\LENOVO\Desktop\数据集\housing-Sheet1.csv", names=names, delim_whitespace=True)
+    boston.dropna(inplace=True)  # 删除缺失值
+    # 查看各种信息
+    print(boston.head(10))  # 查看前十行
+    print(boston.shape)  # 查看行列数
+    print(boston.info())  # 查看信息
+    print(boston.isnull().sum())  # 查看空值数目
+    print(boston.describe())  # 查看统计结果
+    # 相关性分析
+    corrboston = boston.corr()
+    print(corrboston)
+    plt.figure(figsize=(10, 10))
+    sn.heatmap(corrboston, annot=True, cmap='RdGy')  # 相关性图
+    plt.show()
+    # 查看穿过查尔斯河的占比
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+    boston['CHAS'].value_counts().plot.pie(autopct='%1.2f%%', shadow=False, ax=ax[1])  # 饼图
+    ax[1].set_xlabel('CHAS')
+    # boston['CHAS'].value_counts().plot.bar()#条形图
+    # boston['CHAS'].value_counts().plot.hist()#直方图
+    sn.countplot(x='CHAS', data=boston, ax=ax[0])  # 统计x每一个值出现的次数图
+    ax[0].set_xlabel('CHAS')
+    plt.show()
+    # 查看穿过查尔斯河的房价影响
+    bostonchas = boston[['CHAS', 'PRICE']]
+    print(bostonchas)
+    bostonchas = bostonchas.pivot_table(values='PRICE', index='CHAS', aggfunc='mean')
+    print(bostonchas)
+    # 查看各个因素与房价的散点图
+    x_data = boston[['CRIM', 'ZN', 'INDUS', 'CHAS', 'NOX', 'RM', 'GE', 'DIS', 'RAD', 'TAX', 'PRTATIO', 'B', 'LSTAT']]
+    y_data = boston[['PRICE']]
+    plt.figure(figsize=(18, 10))
+    for i in range(13):
+        plt.subplot(4, 4, i + 1)
+        plt.scatter(x_data.values[:, i], y_data, s=5)
+        plt.xlabel(names[i])
+        plt.ylabel('Price')
+        plt.title(str(i + 1) + '. ' + names[i] + ' - Price')
+    plt.tight_layout()  # 调整图像信息间距等，使其不易重叠
+    plt.show()
+    # 线性回归，建立回归模型
+    x = pd.DataFrame(
+        boston[['CRIM', 'ZN', 'INDUS', 'CHAS', 'NOX', 'RM', 'GE', 'DIS', 'RAD', 'TAX', 'PRTATIO', 'B', 'LSTAT']])
+    y = boston['PRICE']
+
+    clf = linear_model.LinearRegression()
+    clf.fit(x, y)
+
+    print('回归系数:', clf.coef_)
+    # 预测数据，得出预测效果(R^2)
+    y_pred = clf.predict(x)
+    print(y_pred)
+
+    score = r2_score(y, y_pred)
+    print(score)
+    # 可视化预测效果
+    plt.plot(y.values, c="r", label="y")
+    plt.plot(y_pred, c="b", label="y_pred")
+    plt.legend()
+    plt.show()
+
+# 划分训练集与测试集，并使用多种线性回归跑数据集
+def study2():
+    names = ['CRIM', 'ZN', 'INDUS', 'CHAS', 'NOX', 'RM', 'GE', 'DIS', 'RAD', 'TAX', 'PRTATIO', 'B', 'LSTAT', 'PRICE']
+    data = pd.read_csv(r"D:\360MoveData\Users\LENOVO\Desktop\数据集\housing-Sheet1.csv",names=names, delim_whitespace=True)
+    data.dropna(inplace=True)  # 删除有缺失的样本
+    # 将房价与其他因素分离开
+    y = data['PRICE']
+    X = data.drop(['PRICE'], axis=1)  # 去掉标签（房价）的数据子集
+    # 划分训练集与测试集，训练集占70%
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
+    # 按训练集对训练集与测试集进行标准化
+    scaler = preprocessing.StandardScaler().fit(X_train)  # scaler包含平均值与标准差
+    X_train = scaler.transform(X_train)  # 对x的训练集标准化
+    X_test = scaler.transform(X_test)  # 对x的测试集标准化
+
+    # 使用LinearRegression进行线性回归
+    lr = linear_model.LinearRegression()  # 实例化一个线性回归对象
+    lr.fit(X_train, y_train)  # 采用fit方法，拟合回归系数
+    print(lr.coef_)  # 输出系数
+    y_pred = lr.predict(X_test)  # 模型预测
+    print("R2=", r2_score(y_test, y_pred))  # 模型评价, 决定系数
+    # 可视化预测效果
+    plt.plot(y_test.values, c="r", label="y_test")
+    plt.plot(y_pred, c="b", label="y_pred")
+    plt.legend()
+    plt.show()
+
+    # ElasticNet回归
+    EN = linear_model.ElasticNet(0.01)  # 实例化弹性网络回归对象
+    EN.fit(X_train, y_train)  # 采用fit方法，拟合回归系数
+    print(lr.coef_)  # 输出系数
+    y_pred = EN.predict(X_test)  # 预测
+    print("R2=", r2_score(y_pred, y_test))  # 评价
+    # 可视化预测效果
+    plt.plot(y_test.values, c="r", label="y_test")
+    plt.plot(y_pred, c="b", label="y_pred")
+    plt.legend()
+    plt.show()
+
+    # 其他回归也是与前两个过程大致相同，只是实例化时用不同方法
+
+if __name__=='__main__':
+    study1()
+    # study2()
+    print('结束')
