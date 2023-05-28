@@ -1,0 +1,127 @@
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn import tree
+from sklearn import preprocessing
+from sklearn.metrics import r2_score
+
+#设置超过一千列再换行
+pd.set_option('display.width',1000)
+#设置汉字显示正常
+plt.rcParams['font.sans-serif'] = ['SimHei']
+#设置显示所有列
+pd.set_option('display.max_columns', None)
+def study1():
+    BJ_Airbnb=pd.read_csv(r'D:\360MoveData\Users\LENOVO\Desktop\数据集\listings.csv',low_memory=False,encoding='gbk')
+    BJ_Airbnb=BJ_Airbnb.dropna(subset=['name'])#去除name属性的缺失值
+
+    print(BJ_Airbnb.head())
+    print(BJ_Airbnb.info())
+
+    #提取出该列的汉字词语
+    neighbourhood=[]
+    a=BJ_Airbnb['neighbourhood'].str.findall('\w+').tolist()#先提取出所有字符串词语，按行分别开来，再将它们转化成列表
+    for i in a:
+        neighbourhood.append(i[0])#添加每一个行的第一个字符串词语，即汉字词语
+    BJ_Airbnb['neighbourhood']=neighbourhood
+    print(BJ_Airbnb['neighbourhood'].unique())#显示去重的列
+
+    #对个别字段进行分析
+    New_BJ_Airbnb1=BJ_Airbnb[['price','minimum_nights','number_of_reviews','calculated_host','availability_365']]
+    print(New_BJ_Airbnb1.describe())
+
+    #分析民宿的分布
+    room_type=BJ_Airbnb['room_type'].unique()
+    room_type_count=BJ_Airbnb['room_type'].value_counts().tolist()
+    plt.bar(x=room_type,height=room_type_count)
+    plt.show()
+    print(BJ_Airbnb[['host_name','name']].groupby('host_name').count().sort_values(by='name',ascending=False).head())#先将提取出的两列按host_name的值相同的进行分组，再计算每一组数量，再按name的值从大到小进行排序
+    print(BJ_Airbnb['neighbourhood'].value_counts())
+
+    # 不同区域的价格情况
+    neighbourhood_price=BJ_Airbnb[['neighbourhood','price']].groupby(['neighbourhood','price']).count().reset_index()#先按区域分组，再按价格分组，将重复的价格去掉，形成区域与价格的对应关系
+    neighbourhood_count=BJ_Airbnb['neighbourhood'].value_counts()#统计各个区域的房子数量
+    for i,j in zip(neighbourhood_count.index,range(15)):
+        plt.subplot(4,4,j+1)
+        plt.hist(neighbourhood_price[neighbourhood_price['neighbourhood']==i].price)#绘制各个区域的房价分布图
+        plt.title(i)
+        #设置x、y坐标轴
+        plt.xlabel('price')
+        plt.ylabel('count')
+    plt.tight_layout()#调整分图，使其不重叠
+    plt.show()
+
+    #去除异常值
+    pirce_is_0=BJ_Airbnb[BJ_Airbnb['price']==0]
+    drop_BJ_Airbnb=pirce_is_0.index.tolist()
+    New_BJ_Airbnb2=BJ_Airbnb.drop(drop_BJ_Airbnb)
+    New_BJ_Airbnb3=pd.DataFrame(New_BJ_Airbnb2['neighbourhood'].unique(), columns=['区域'])
+
+    #查看各个区域价格的各种统计量
+    # 先按区域分组，再找到每个区域的某个统计特征，再将dataframe转化为price的series(二元表),在将该表转化为列表
+    New_BJ_Airbnb3['max_price']=New_BJ_Airbnb2[['neighbourhood','price']].groupby('neighbourhood').max().price.tolist()
+    New_BJ_Airbnb3['min_price']=New_BJ_Airbnb2[['neighbourhood','price']].groupby('neighbourhood').min().price.tolist()
+    New_BJ_Airbnb3['mean_price']=New_BJ_Airbnb2[['neighbourhood','price']].groupby('neighbourhood').mean().price.tolist()
+    New_BJ_Airbnb3['median_price']=New_BJ_Airbnb2[['neighbourhood','price']].groupby('neighbourhood').median().price.tolist()
+    New_BJ_Airbnb3['75%_price']=New_BJ_Airbnb2[['neighbourhood','price']].groupby('neighbourhood').quantile(0.75).price.tolist()
+    New_BJ_Airbnb3['25%_price']=New_BJ_Airbnb2[['neighbourhood','price']].groupby('neighbourhood').quantile(0.25).price.tolist()
+    print(New_BJ_Airbnb3)
+
+    #数据可视化，查看每个区域在不同统计量上的比较
+    x = New_BJ_Airbnb3['区域'].tolist()
+    for i,j in zip(New_BJ_Airbnb3.columns[1:7],range(6)):
+        plt.subplot(2,3,j+1)
+        plt.bar(x,New_BJ_Airbnb3[i])
+        plt.title(i)
+        plt.xticks(fontsize=5)
+    plt.tight_layout()
+    plt.show()
+    #查看各个元素之间的相关性
+    index=['price', 'minimum_nights', 'number_of_reviews', 'reviews_per_month', 'availability_365', 'last_review']
+    corr = New_BJ_Airbnb2[index].corr()
+    print(corr)
+    plt.figure(figsize=(10, 10))
+    sns.heatmap(corr, annot=True, cmap='RdGy')  # 相关性图
+    plt.show()
+#回归预测
+def study2():
+    BJ_Airbnb = pd.read_csv(r'D:\360MoveData\Users\LENOVO\Desktop\数据集\listings.csv', low_memory=False, encoding='gbk')
+    BJ_Airbnb.dropna(inplace=True)
+    index=['minimum_nights','availability_365','number_of_reviews','calculated_host','reviews_per_month']
+    X=BJ_Airbnb[index]
+    Y=BJ_Airbnb['price']
+    X_train,X_test,Y_train,Y_test=train_test_split(X,Y,test_size=0.3)
+    # 按训练集对训练集与测试集进行标准化
+    scaler = preprocessing.StandardScaler().fit(X_train)  # scaler包含平均值与标准差
+    X_train = scaler.transform(X_train)  # 对x的训练集标准化
+    X_test = scaler.transform(X_test)  # 对x的测试集标准化
+    #线性回归
+    lr=LinearRegression()
+    lr.fit(X_train,Y_train)
+    print(lr.coef_)
+    Y_pred=lr.predict(X_test)
+    print("R2=", r2_score(Y_test.values, Y_pred))
+    # 可视化预测效果
+    plt.plot(Y_test.values, c="r", label="Y_test")
+    plt.plot(Y_pred, c="b", label="Y_pred")
+    plt.legend()
+    plt.show()
+    #决策树
+    selecttree=tree.DecisionTreeRegressor()
+    selecttree.fit(X_train,Y_train)
+    Y_pred=selecttree.predict(X_test)
+    print("R2= ",r2_score(Y_test.values,Y_pred))
+    # 可视化预测效果
+    plt.plot(Y_test.values, c="r", label="Y_test")
+    plt.plot(Y_pred, c="b", label="Y_pred")
+    plt.legend()
+    plt.show()
+
+
+if __name__ == '__main__':
+    # study1()
+    # study2()
+    print('结束')
