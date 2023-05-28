@@ -1,0 +1,72 @@
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+import matplotlib.pyplot as plt
+
+# 设置超过一千列再换行
+pd.set_option('display.width', 1000)
+# 设置汉字显示正常
+plt.rcParams['font.sans-serif'] = ['SimHei']
+# 设置显示所有列
+pd.set_option('display.max_columns', None)
+
+# 处理因素少，数据参数提前设置好
+A=[[1,1/4,1],[4,1,4],[1,1/4,1]]
+C1=[[1,1,1,1/2],[1,1,1,1/2],[1,1,1,1/2],[2,2,2,1]]
+C2=[[1,6,2],[1/6,1,1/4],[1/2,4,1]]
+# 计算最大特征值和其对应的特征向量
+eigenvalues, eigenvectors = np.linalg.eig(A)
+max_eigenvalue = eigenvalues[np.argmax(eigenvalues)]
+max_eigenvector = eigenvectors[:, np.argmax(eigenvalues)]
+# 归一化处理
+scaler = MinMaxScaler()
+max_eigenvector = max_eigenvector/sum(max_eigenvector)
+# 一致性检验
+A=np.array(A)
+C1=np.array(C1)
+C2=np.array(C2)
+CI=(max_eigenvalue-A.shape[0])/(A.shape[0]-1)
+RI=0.58
+CR=CI/RI
+if(CR<0.1):
+    print('通过一致性检验,权重向量为：',max_eigenvector)
+# 计算影响度
+W=np.array([0.0334,0.0334,0.0334,0.0668,0.666,0.098196,0.014863,0.053941]).reshape(8,1)
+data=pd.read_csv('部分属性归一化的数据.csv',encoding='gbk')
+# 取指标
+data=data.iloc[:,[14,15,16,21,13,18,20,23]]
+# 算影响度
+score=data.dot(W)
+print(score)
+print(data.head())
+print(W)
+# 因数字越小，影响度越小，且数字区间位于[0,1]，故取反加一
+score = score.applymap(lambda x: -x + 1)
+# score.to_csv('影响度.csv',encoding='gbk')
+# 绘制散点图
+plt.scatter(range(0,4605),score[0].tolist())
+plt.title('影响度情况')
+plt.show()
+# 绘制柱形图
+upper=score[score[0]>0.5]
+below=score[score[0]<0.5]
+upper=upper.shape[0]
+below=below.shape[0]
+plt.title('影响度是否大于0.5')
+x = ['大于0.5', '小于0.5']
+y = [upper, below]
+plt.bar(x, y)
+plt.text(0, upper + 0.8, str(upper), ha='center', fontdict={'size': 10})
+plt.text(1, below + 0.8, str(below), ha='center', fontdict={'size': 10})
+plt.title('影响度情况')
+plt.show()
+# 绘制饼状图
+plt.figure(figsize=(7.5,5),dpi=80)
+labels = ['影响度高','影响度低']
+sizes = [upper,below]
+colors = ['blue','yellow']
+plt.pie(sizes,labels=labels,colors=colors,labeldistance = 1.2,autopct = '%3.2f%%',startangle =90,pctdistance = 0.6)
+plt.axis('equal')
+plt.legend()
+plt.title('影响度情况')
+plt.show()
