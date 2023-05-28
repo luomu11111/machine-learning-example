@@ -1,0 +1,86 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import csv
+import math
+
+# 设置超过一千列再换行
+pd.set_option('display.width', 1000)
+# 设置汉字显示正常
+plt.rcParams['font.sans-serif'] = ['SimHei']
+# 设置显示所有列
+pd.set_option('display.max_columns', None)
+
+data=pd.read_csv('部分属性归一化的数据.csv',encoding='gbk')
+data1=data
+# 取指标
+data=data.iloc[:,[14,15,16,21,13,18,20,23]].values.tolist()
+# 计算每个评价对象关于每个属性的比重
+transposed = list(zip(*data))
+column_sums = [sum(column) for column in transposed]
+print(column_sums)
+result = [[row[i] / column_sums[i] for i in range(len(row))] for row in data]
+print(result)
+# with open('result.csv', 'w', newline='') as file:
+#     writer = csv.writer(file)
+#     writer.writerows(result)
+# 计算每个指标的熵值
+epsilon = 1e-9
+result = [[x if x != 0 else epsilon for x in row] for row in result]
+transposed = list(zip(*result))
+e = [sum(x * math.log(x) for x in column) for column in transposed]
+e = [x * (-1 / math.log(len(result))) for x in e]
+# 计算每项指标的变异系数
+g=[1-x for x in e]
+print(g)
+# 计算每项指标的权重
+w=[x/sum(g) for x in g]
+print(w)
+# 计算影响度
+W=np.array([0.07526375592914741, 0.059250954453069105, 0.05706325131941524, 0.18337398577288463, 0.2136727237511902, 0.11645087251054768, 0.032034478967320715, 0.26288997729642505]).reshape(8,1)
+# 取指标
+data1=data1.iloc[:,[14,15,16,21,13,18,20,23]]
+# 算影响度
+score=data1.dot(W)
+print(score)
+print(data1.head())
+print(W)
+# 因数字越小，影响度越小，且数字区间位于[0,1]，故取反加一
+score = score.applymap(lambda x: -x + 1)
+# score.to_csv('熵值法影响度.csv',encoding='gbk')
+# 绘制散点图
+plt.scatter(range(0,4605),score[0].tolist())
+plt.title('影响度情况')
+# plt.savefig('熵值法散点图',dpi=300)
+plt.show()
+# 绘制柱形图
+a=score[(score[0] >=0.8) & (score[0] <= 1.0)]
+b=score[(score[0] >= 0.6) & (score[0] <= 0.8)]
+c=score[(score[0] >= 0.4) & (score[0] <= 0.6)]
+d=score[score[0] <= 0.4]
+a=a.shape[0]
+b=b.shape[0]
+c=c.shape[0]
+d=d.shape[0]
+plt.title('影响度区间')
+x = ['0.8-1.0', '0.6-0.8', '0.4-0.6', '0-0.4']
+y = [a, b, c, d]
+plt.bar(x, y)
+plt.text(0, a + 0.8, str(a), ha='center', fontdict={'size': 10})
+plt.text(1, b + 0.8, str(b), ha='center', fontdict={'size': 10})
+plt.text(2, c + 0.8, str(c), ha='center', fontdict={'size': 10})
+plt.text(3, d + 0.8, str(d), ha='center', fontdict={'size': 10})
+plt.title('影响度情况')
+# plt.savefig('熵值法柱状图',dpi=300)
+plt.show()
+# 绘制饼状图
+plt.figure(figsize=(7.5,5),dpi=80)
+labels = ['0.8-1.0', '0.6-0.8', '0.4-0.6', '0-0.4']
+sizes = [a, b, c, d]
+colors = ['blue','yellow','red','green']
+plt.pie(sizes,colors=colors,labeldistance = 1.2,autopct = '%3.2f%%',startangle =90,pctdistance = 0.6,textprops={'fontsize': 8})
+plt.axis('equal')
+plt.legend(labels=labels)
+plt.title('影响度情况')
+# plt.savefig('熵值法饼状图',dpi=300)
+plt.show()
